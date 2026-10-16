@@ -8,17 +8,17 @@ No JavaScript or web view needed.
 ## Quick start: SwiftUI
 
 Add `https://github.com/arenclissold/furifont-swift` in Xcode's package dependencies
-and select the **FurifontSwiftUI** product. Then:
+and select the **Furifont** product. Then:
 
 ```swift
-import FurifontSwiftUI
+import Furifont
 
 FurifontText("来ない、来ます、来る。")
 ```
 
 <img src="Documentation/quick-start.png" alt="Furifont Serif with context-sensitive readings, a medium-weight sentence, and text with furigana hidden" width="390">
 
-That's it. The optional product includes Furifont Serif VF v0.3.0, its matching
+That's it. The product includes Furifont Serif VF v0.3.0, its matching
 reading tables, and automatic font registration. You don't need to download
 files, look up font names, or change Info.plist.
 
@@ -44,93 +44,128 @@ try FurifontText.prepare()
 
 Preparation is safe to repeat. If automatic preparation fails, the view falls
 back to plain source text; `prepare()` lets you handle that error explicitly.
-The bundled preset is Serif with hiragana readings. For another font or custom
-build, use the core library below.
+The bundled preset is Serif with hiragana readings. The same product supports
+custom Furifont builds and lower-level text renderers.
 
-## Choose the product
-
-| Product | Use it for | Bundled resources |
-| --- | --- | --- |
-| `FurifontSwiftUI` | A ready-to-use SwiftUI view | Serif VF and matching tables, about 24 MB before app packaging |
-| `Furifont` | Your own fonts, data, or text renderer | None; Foundation-only |
-
-Only linking `FurifontSwiftUI` adds its resource bundle to an app. Swift Package
-Manager still downloads the repository when resolving either product.
-Both products need Swift 6.0+. Supported Apple platforms: iOS 15+, macOS 12+,
-tvOS 15+, watchOS 8+. The core library also runs on Linux.
-
-### Package.swift
+## One product, one import
 
 ```swift
-.package(url: "https://github.com/arenclissold/furifont-swift.git", from: "0.2.0")
+.package(url: "https://github.com/arenclissold/furifont-swift.git", from: "0.3.0")
 
-// In your target's dependencies, choose one:
-.product(name: "FurifontSwiftUI", package: "furifont-swift")
-// or:
+// In your target's dependencies:
 .product(name: "Furifont", package: "furifont-swift")
 ```
 
-## Core library: bring your own font
+Use `import Furifont` for the SwiftUI view, font configuration, and reading APIs.
+The product includes about 24 MB of font and reading resources before app packaging,
+including when you supply your own font. No resources are downloaded at runtime.
 
-The existing `Furifont` product stays independent of SwiftUI and font resources.
-Choose a Furifont release or custom build and bundle:
+Requires Swift 6.0+. Supported Apple platforms: iOS 15+, macOS 12+, tvOS 15+,
+watchOS 8+. The Foundation reading APIs also run on Linux; font registration and
+SwiftUI rendering are available only on supported Apple platforms.
 
-1. A native font file (`.ttf` or `.otf`).
-2. Its matching `.ivs.json` file.
-3. The packed `okurigana.json` from the same Furifont version.
+**Migrating from 0.2:** replace the `FurifontSwiftUI` product dependency and import
+with `Furifont`. Existing `FurifontText` calls and `FurifontReadings` APIs still work.
+Previously core-only consumers now receive the bundled resources too.
 
-For example, [Furifont v0.3.0](https://github.com/antfu/furifont/releases/tag/v0.3.0)
-provides `FurifontSerifVF.ttf` and `FurifontSerifVF.ivs.json`. The matching packed
-table is [okurigana.json](https://github.com/antfu/furifont/blob/v0.3.0/packages/dictionary/data/okurigana.json).
+## Customize the bundled font
 
-Load the reading tables with one initializer:
+Create configuration once, then apply it to a view hierarchy:
 
 ```swift
-import Furifont
+var appearance = try FurifontConfiguration.bundled()
+appearance.lineHeightMultiple = 1.9
+appearance.variations["wght"] = 500
 
-let readings = try FurifontReadings(fontResource: "FurifontSerifVF")
+VStack {
+    FurifontText("来ない、来ます、来る。")
+    FurifontText("今日は日本語を勉強します。")
+}
+.furifont(appearance)
+```
+
+You can set `variations` using four-character OpenType axis tags, and `features`
+using four-character OpenType feature tags supported by your font. Invalid tags
+are ignored. Explicit variation values override the view's `weight`; `ss01` is
+reserved for `showsFurigana`. Standard SwiftUI modifiers still control text color,
+alignment, line limits, and selection. `lineHeightMultiple` specifies a minimum:
+font ascent and descent are preserved so ruby is not clipped.
+
+## Use your own Furifont build
+
+Bundle the font (`.ttf` or `.otf`), its matching `.ivs.json`, and packed
+`okurigana.json` from the same upstream version or custom build. Then:
+
+```swift
+let custom = try FurifontConfiguration(fontResource: "MyFurifont")
+
+FurifontText("来ない、来ます、来る。", configuration: custom)
+
+// Or apply to every FurifontText below this view:
+ContentView()
+    .furifont(custom)
+```
+
+This loads `MyFurifont.ttf`, `MyFurifont.ivs.json`, and `okurigana.json` from
+`Bundle.main`, registers the font, and discovers its PostScript name. Supply
+`bundle:`, `fontExtension: "otf"`, or `okuriganaResource:` for other resources.
+In a Swift package, pass your own `Bundle.module`. Construct once and reuse;
+file loading is synchronous, so prepare away from the UI thread when appropriate.
+
+For direct file URLs or decoded reading tables:
+
+```swift
+let readings = try FurifontReadings(readingsURL: readingsURL, okuriganaURL: okuriganaURL)
+let custom = try FurifontConfiguration(fontURL: fontURL, readings: readings)
+```
+
+For an already registered font, use `init(fontName:readings:)` with its actual
+PostScript name. Custom fonts must be compatible Furifont builds; the package
+cannot add furigana glyphs to an ordinary Japanese font.
+
+Configuration priority is the view's explicit `configuration:`, then the nearest
+`.furifont(...)` modifier, then bundled Serif. A custom configuration uses its own
+reading tables; bundled tables are never substituted. Custom initialization
+throws loading and registration errors. The default view falls back to plain text
+if the bundled preset fails to load; `FurifontText.prepare()` or
+`FurifontConfiguration.bundled()` lets you handle that error explicitly.
+
+## UIKit, AppKit, and custom renderers
+
+Use the same configuration outside SwiftUI:
+
+```swift
+let configuration = try FurifontConfiguration.bundled()
+let source = "来ない、来ます、来る。"
+let display = configuration.readings.annotateOkurigana(source)
+let font = configuration.makeFont(size: 28, weight: 400)
+
+// UIKit (import UIKit):
+label.font = font as UIFont
+label.text = display
+label.accessibilityLabel = source
+
+// AppKit (import AppKit):
+textField.font = font as NSFont
+textField.stringValue = display
+textField.setAccessibilityLabel(source)
+```
+
+`makeFont` returns a Core Text font with your variations, features, and ruby
+visibility settings. Weight uses the OpenType 100–900 scale. UIKit/AppKit callers
+manage line layout, Dynamic Type, and accessibility. Keep the original string for
+storage and search, and allow enough line height for ruby.
+
+You can also use `FurifontReadings` alone. It does no registration or rendering:
+
+```swift
+let readings = try FurifontReadings(fontResource: "MyFurifont")
 let display = readings.annotateOkurigana("来ない、来ます、来る。")
 ```
 
-This loads `FurifontSerifVF.ivs.json` and `okurigana.json` from `Bundle.main`.
-You can supply `bundle:` and `okuriganaResource:` for other bundles or filenames.
-Use the file's stem, not the font's PostScript name. Missing resources throw
-`LoadingError.resourceNotFound` with the missing filename.
-
-Alternatively, load via `init(readingsURL:okuriganaURL:)`,
-`init(readingsData:okuriganaData:)`, or `init(lists:pairs:)`.
-Initialize once and reuse the immutable, `Sendable` value. Loading is synchronous;
-initialize away from the UI thread when appropriate. The core never downloads
-files or registers fonts. Malformed JSON, unsupported tables, and file errors throw.
-
-### Render with your registered font
-
-On iOS, register your font with Core Text or list its filename in `UIAppFonts`.
-Use its actual PostScript name, which may differ from the filename. With the core
-library, font registration and text layout remain the application's responsibility.
-
-```swift
-// SwiftUI, after registering the font:
-Text(readings.annotateOkurigana(source))
-    .font(.custom("FurifontSerifVF-ExtraLight", size: 28))
-    .lineSpacing(12)
-    .accessibilityLabel(source)
-
-// UIKit:
-label.font = UIFont(name: "FurifontSerifVF-ExtraLight", size: 28)
-label.text = readings.annotateOkurigana(source)
-label.accessibilityLabel = source
-
-// AppKit:
-textField.font = NSFont(name: "FurifontSerifVF-ExtraLight", size: 28)
-textField.stringValue = readings.annotateOkurigana(source)
-```
-
-Import SwiftUI, UIKit, or AppKit for the respective sample, and set `source` to
-your Japanese text. Core Text consumers can use the transformed string in their
-usual attributed-text layout. Give lines enough room for ruby. The sample font's
-PostScript name denotes its default ExtraLight instance; choose the desired
-variable-font weight in your renderer. The optional SwiftUI view defaults to Regular.
+Its bundle initializer accepts `bundle:` and `okuriganaResource:`. Alternatives
+include `init(readingsURL:okuriganaURL:)`, `init(readingsData:okuriganaData:)`, and
+`init(lists:pairs:)`. Reading values are immutable and `Sendable`.
 
 ## Inspect matches or select a reading explicitly
 
@@ -176,7 +211,8 @@ swift build -c release
 ```
 
 Tests cover ambiguity, defaults, words, UTF-16 ranges, supplementary Han,
-resource loading, bundled font registration, variable weights, and ruby hiding.
+resource loading, custom and bundled font registration, configuration overrides,
+variable weights, and ruby hiding.
 Core checks run on macOS and Linux; SwiftUI checks run on Apple platforms.
 
 ## Credits and licences
@@ -184,10 +220,10 @@ Core checks run on macOS and Linux; SwiftUI checks run on Apple platforms.
 Code: MIT. Based on Anthony Fu's `@furifont/helper-web` v0.3.0, with a Swift
 adaptation by [arenclissold](https://github.com/arenclissold). This is an independent port.
 
-The optional resources have separate licences: Furifont Serif is derived from
+The bundled resources have separate licences: Furifont Serif is derived from
 Adobe Source Han Serif under SIL OFL 1.1; reading data is CC BY-SA 4.0 with EDRDG,
 JmdictFurigana, Tatoeba, and other upstream credits. Include those credits in your
 application's acknowledgements. Full notices and licences ship in the resource bundle.
 
 See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
-[bundled resource notices](Sources/FurifontSwiftUI/Resources/NOTICE.md).
+[bundled resource notices](Sources/Furifont/Resources/NOTICE.md).

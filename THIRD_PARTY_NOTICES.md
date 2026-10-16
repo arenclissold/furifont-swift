@@ -36,19 +36,16 @@ SOFTWARE.
 
 ## Fonts and reading data
 
-The `Furifont` core product includes no font files or upstream dictionary data.
-Its tests use small synthetic fixtures written for this package.
-
-The optional `FurifontSwiftUI` product bundles unmodified Furifont Serif VF v0.3.0
+The `Furifont` product bundles unmodified Furifont Serif VF v0.3.0
 and matching reading tables. These resources are not MIT licensed:
 
 - `FurifontSerifVF.ttf`: SIL OFL 1.1, derived from Adobe Source Han Serif.
 - `FurifontSerifVF.ivs.json` and `okurigana.json`: CC BY-SA 4.0, with upstream source credits.
 
 Full licences and source credits are included in
-`Sources/FurifontSwiftUI/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
+`Sources/Furifont/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
 See `Resources/NOTICE.md` for exact upstream locations. Applications distributing
-the optional resources should include the upstream credits in their acknowledgements.
+these resources should include the upstream credits in their acknowledgements.
 This package's MIT licence applies to its code, not those font or data resources.
 
 The resources are unchanged from https://github.com/antfu/furifont/tree/v0.3.0.

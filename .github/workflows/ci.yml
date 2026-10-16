@@ -24,6 +24,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build SwiftUI product for iOS
         run: >-
-          xcodebuild -scheme FurifontSwiftUI
+          xcodebuild -scheme Furifont
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath .build/ios build CODE_SIGNING_ALLOWED=NO
