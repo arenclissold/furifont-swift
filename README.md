@@ -87,9 +87,10 @@ the repository when resolving either configuration; no files are downloaded at r
 Traits are additive across the dependency graph: if another dependency enables
 `BundledFont` for this package, those assets will be included.
 
-Requires Swift 6.1+. In [Xcode 26.4 or later](https://developer.apple.com/documentation/xcode-release-notes/xcode-26_4-release-notes),
+Requires Swift 6.2+ to avoid older SwiftPM versions linking disabled optional targets.
+In [Xcode 26.4 or later](https://developer.apple.com/documentation/xcode-release-notes/xcode-26_4-release-notes),
 enable `BundledFont` in the project’s **Package Dependencies** view. For older Xcode
-versions with Swift 6.1+, declare the dependency in a local Swift package using
+versions with Swift 6.2+, declare the dependency in a local Swift package using
 the manifest above. Supported Apple platforms: iOS 15+, macOS 12+, tvOS 15+,
 watchOS 8+. The Foundation reading APIs also run on Linux; font registration and
 SwiftUI rendering are available only on supported Apple platforms.

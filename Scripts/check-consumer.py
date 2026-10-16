@@ -15,7 +15,7 @@ traits = '["BundledFont"]' if bundled else '[]'
 with tempfile.TemporaryDirectory(prefix='furifont-consumer-') as directory:
     root = pathlib.Path(directory)
     (root / 'Sources' / 'Consumer').mkdir(parents=True)
-    (root / 'Package.swift').write_text('''// swift-tools-version: 6.1
+    (root / 'Package.swift').write_text('''// swift-tools-version: 6.2
 import PackageDescription
 let package = Package(name: "Consumer", platforms: [.macOS(.v12)], dependencies: [
     .package(path: %s, traits: %s)
