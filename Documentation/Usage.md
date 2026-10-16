@@ -134,4 +134,3 @@ For the core API, keep the source string for storage, search, copying, and
 accessibility. Transformed strings contain real, invisible Unicode characters.
 Render them with the matching Furifont. The SwiftUI view manages its display copy;
 text selection can still copy invisible selectors along with the rendered text.
-
