@@ -4,7 +4,7 @@ import Testing
 import UIKit
 import Furifont
 
-struct SwiftUIPreviewTests {
+struct FurifontRenderingTests {
     #if BundledFont
     @MainActor @Test func oneLineSetupRendersWithoutAppFontConfiguration() throws {
         guard #available(iOS 16.0, tvOS 16.0, *) else { return }
@@ -32,17 +32,11 @@ struct SwiftUIPreviewTests {
         var custom = standard
         custom.variations["wght"] = 700
         custom.lineHeightMultiple = 2.4
-        func png(_ view: some View) throws -> Data {
-            let renderer = ImageRenderer(content: view.frame(width: 200)
-                .foregroundStyle(.black).background(.white).preferredColorScheme(.light))
-            renderer.scale = 2
-            return try #require(renderer.uiImage?.pngData())
-        }
         let source = "来ない、来ます、来る。"
-        let baseline = try png(FurifontText(source))
-        let explicit = try png(FurifontText(source, configuration: custom))
-        let inherited = try png(FurifontText(source).furifont(custom))
-        let overridden = try png(FurifontText(source, configuration: standard).furifont(custom))
+        let baseline = try renderPNG(FurifontText(source))
+        let explicit = try renderPNG(FurifontText(source, configuration: custom))
+        let inherited = try renderPNG(FurifontText(source).furifont(custom))
+        let overridden = try renderPNG(FurifontText(source, configuration: standard).furifont(custom))
         #expect(explicit == inherited)
         #expect(overridden == baseline)
         #expect(explicit != baseline)
@@ -51,16 +45,20 @@ struct SwiftUIPreviewTests {
     #else
     @MainActor @Test func withoutBundledFontRendersPlainSource() throws {
         guard #available(iOS 16.0, tvOS 16.0, *) else { return }
-        func png(_ view: some View) throws -> Data {
-            let renderer = ImageRenderer(content: view.frame(width: 200)
-                .foregroundStyle(.black).background(.white).preferredColorScheme(.light))
-            return try #require(renderer.uiImage?.pngData())
-        }
-        let actual = try png(FurifontText("来\u{E01E5}ない"))
-        let plain = try png(Text("来ない").font(.system(size: 28, weight: .regular, design: .serif)))
+        let actual = try renderPNG(FurifontText("来\u{E01E5}ない"))
+        let plain = try renderPNG(
+            Text("来ない").font(.system(size: 28, weight: .regular, design: .serif)))
         #expect(actual == plain)
     }
     #endif
 
+    @available(iOS 16.0, tvOS 16.0, *)
+    @MainActor private func renderPNG(_ view: some View) throws -> Data {
+        let renderer = ImageRenderer(
+            content: view.frame(width: 200)
+                .foregroundStyle(.black).background(.white).preferredColorScheme(.light))
+        renderer.scale = 2
+        return try #require(renderer.uiImage?.pngData())
+    }
 }
 #endif

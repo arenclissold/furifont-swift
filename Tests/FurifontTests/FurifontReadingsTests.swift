@@ -1,19 +1,24 @@
 import Foundation
-import Furifont
 import Testing
+
+@testable import Furifont
 
 struct FurifontReadingsTests {
     // Synthetic tables exercise the upstream rules without distributing dictionary data.
     private func reader() throws -> FurifontReadings {
-        try FurifontReadings(lists: .init(
-            kanji: ["来": ["らい", "き", "く", "こ"], "読": ["よ", "どく"], "人": ["じん", "ひと"], "𠮷": ["よし", "きち"]],
-            words: ["一人": ["一[いち]人[にん]", "一人[ひとり]"], "今日": ["今日[きょう]", "今[こん]日[にち]"]],
-            lone: ["読": "よ"]
-        ), pairs: [
-            "来": ["こ": ["ない", "な"], "き": ["ます", "た"], "く": ["る"], "": ["に", "なく"]],
-            "読": ["よ": ["む"]], "人": ["ひと": ["も"]], "𠮷": ["きち": ["だ"]],
-            "一人": ["ひとり": ["も"]], "今日": ["きょう": ["は"]]
-        ])
+        try FurifontReadings(
+            lists: .init(
+                kanji: [
+                    "来": ["らい", "き", "く", "こ"], "読": ["よ", "どく"], "人": ["じん", "ひと"], "𠮷": ["よし", "きち"],
+                ],
+                words: ["一人": ["一[いち]人[にん]", "一人[ひとり]"], "今日": ["今日[きょう]", "今[こん]日[にち]"]],
+                lone: ["読": "よ"]
+            ),
+            pairs: [
+                "来": ["こ": ["ない", "な"], "き": ["ます", "た"], "く": ["る"], "": ["に", "なく"]],
+                "読": ["よ": ["む"]], "人": ["ひと": ["も"]], "𠮷": ["きち": ["だ"]],
+                "一人": ["ひとり": ["も"]], "今日": ["きょう": ["は"]],
+            ])
     }
 
     @Test func correctsSingleKanjiReadings() throws {
@@ -85,7 +90,8 @@ struct FurifontReadingsTests {
 
     @Test func limitsSelectorsToFifteenReadings() throws {
         let readings = (0..<16).map { "reading\($0)" }
-        let reader = try FurifontReadings(lists: .init(kanji: ["字": readings], words: [:], lone: [:]), pairs: [:])
+        let reader = try FurifontReadings(
+            lists: .init(kanji: ["字": readings], words: [:], lone: [:]), pairs: [:])
         #expect(reader.selector(for: "字", reading: "reading14")?.value == 0xE01EF)
         #expect(reader.selector(for: "字", reading: "reading15") == nil)
     }
@@ -93,7 +99,8 @@ struct FurifontReadingsTests {
     @Test func loadsJSONWithoutAppOrBundleDependencies() throws {
         let lists = FurifontReadings.Lists(kanji: ["来": ["く", "こ"]], words: [:], lone: [:])
         let pairs = ["来": ["こ": ["ない"]]]
-        let reader = try FurifontReadings(readingsData: JSONEncoder().encode(lists), okuriganaData: JSONEncoder().encode(pairs))
+        let reader = try FurifontReadings(
+            readingsData: JSONEncoder().encode(lists), okuriganaData: JSONEncoder().encode(pairs))
         #expect(reader.annotateOkurigana("来ない") == "来\u{E01E2}ない")
     }
 
@@ -105,8 +112,9 @@ struct FurifontReadingsTests {
             try FurifontReadings(readingsData: Data("{}".utf8), okuriganaData: Data("[]".utf8))
         }
         #expect(throws: FurifontReadings.LoadingError.fileURLsRequired) {
-            try FurifontReadings(readingsURL: URL(string: "https://example.com/readings.json")!,
-                                okuriganaURL: URL(string: "https://example.com/pairs.json")!)
+            try FurifontReadings(
+                readingsURL: URL(string: "https://example.com/readings.json")!,
+                okuriganaURL: URL(string: "https://example.com/pairs.json")!)
         }
     }
 
@@ -116,7 +124,8 @@ struct FurifontReadingsTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let listsURL = directory.appendingPathComponent("font.ivs.json")
         let pairsURL = directory.appendingPathComponent("okurigana.json")
-        try JSONEncoder().encode(FurifontReadings.Lists(kanji: ["来": ["こ"]], words: [:], lone: [:])).write(to: listsURL)
+        try JSONEncoder().encode(FurifontReadings.Lists(kanji: ["来": ["こ"]], words: [:], lone: [:])).write(
+            to: listsURL)
         try JSONEncoder().encode(["来": ["こ": ["ない"]]]).write(to: pairsURL)
         let reader = try FurifontReadings(readingsURL: listsURL, okuriganaURL: pairsURL)
         #expect(reader.annotateOkurigana("来ない") == "来\u{E01E1}ない")
@@ -125,8 +134,9 @@ struct FurifontReadingsTests {
         let bundle = Bundle.module
         let reader = try FurifontReadings(fontResource: "Example", bundle: bundle)
         #expect(reader.annotateOkurigana("来ない") == "来\u{E01E2}ない")
-        let custom = try FurifontReadings(fontResource: "Example", bundle: bundle,
-                                         okuriganaResource: "custom-pairs")
+        let custom = try FurifontReadings(
+            fontResource: "Example", bundle: bundle,
+            okuriganaResource: "custom-pairs")
         #expect(custom.annotateOkurigana("来なかった") == "来\u{E01E2}なかった")
         #expect(throws: FurifontReadings.LoadingError.resourceNotFound("Absent.ivs.json")) {
             try FurifontReadings(fontResource: "Absent", bundle: bundle)
@@ -135,5 +145,8 @@ struct FurifontReadingsTests {
             try FurifontReadings(fontResource: "Example", bundle: bundle, okuriganaResource: "absent-pairs")
         }
     }
-
+    @Test func accessibilityAndHiddenTextKeepOriginalCharacters() {
+        #expect(FurifontSelectors.plain("来\u{E01E5}ない、今\u{E01E2}日") == "来ない、今日")
+        #expect(FurifontSelectors.plain("かな English 🗾") == "かな English 🗾")
+    }
 }

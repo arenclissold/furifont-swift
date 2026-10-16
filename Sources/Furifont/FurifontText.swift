@@ -25,8 +25,10 @@ public struct FurifontText: View {
 
     /// Uses an explicit configuration, the nearest `.furifont(...)` modifier, or bundled Serif.
     /// Size is in points and scales with Dynamic Type.
-    public init(_ text: String, size: CGFloat = 28, weight: Font.Weight = .regular,
-                showsFurigana: Bool = true, configuration: FurifontConfiguration? = nil) {
+    public init(
+        _ text: String, size: CGFloat = 28, weight: Font.Weight = .regular,
+        showsFurigana: Bool = true, configuration: FurifontConfiguration? = nil
+    ) {
         self.configuration = configuration
         source = text
         self.weight = weight
@@ -45,15 +47,15 @@ public struct FurifontText: View {
     }
 
     public var body: some View {
-        let original = FurifontConfiguration.plain(source)
+        let original = FurifontSelectors.plain(source)
         Group {
             if let configuration = configuration ?? inheritedConfiguration ?? (try? .bundled()) {
-                let font = configuration.makeFont(size: scaledSize, weight: Self.numericWeight(weight),
-                                                  showsFurigana: showsFurigana)
+                let font = configuration.makeFont(
+                    size: scaledSize, weight: Self.numericWeight(weight),
+                    showsFurigana: showsFurigana)
                 Text(showsFurigana ? configuration.readings.annotateOkurigana(source) : original)
                     .font(Font(font))
-                    // Furifont already includes ruby ascent: add only any missing leading.
-                    .lineSpacing(max(0, scaledSize * max(1, configuration.lineHeightMultiple) - CTFontGetAscent(font) - CTFontGetDescent(font) - CTFontGetLeading(font)))
+                    .lineSpacing(configuration.additionalLineSpacing(for: font))
             } else {
                 Text(original)
                     .font(.system(size: scaledSize, weight: weight, design: .serif))
@@ -76,22 +78,4 @@ public struct FurifontText: View {
     }
 }
 
-private struct FurifontConfigurationKey: EnvironmentKey {
-    static let defaultValue: FurifontConfiguration? = nil
-}
-
-extension EnvironmentValues {
-    fileprivate var furifontConfiguration: FurifontConfiguration? {
-        get { self[FurifontConfigurationKey.self] }
-        set { self[FurifontConfigurationKey.self] = newValue }
-    }
-}
-
-extension View {
-    /// Sets the font, readings, and rendering preferences for descendant `FurifontText` views.
-    /// An individual view's explicit `configuration:` takes precedence.
-    public func furifont(_ configuration: FurifontConfiguration) -> some View {
-        environment(\.furifontConfiguration, configuration)
-    }
-}
 #endif

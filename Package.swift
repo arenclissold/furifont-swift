@@ -8,14 +8,17 @@ let package = Package(
         .library(name: "Furifont", targets: ["Furifont"])
     ],
     traits: [
-        .trait(name: "BundledFont", description: "Include Furifont Serif VF and its matching reading tables (about 24 MB).")
+        .trait(
+            name: "BundledFont",
+            description: "Include Furifont Serif VF and its matching reading tables (about 24 MB).")
     ],
     targets: [
-        .target(name: "Furifont", dependencies: [
-            .target(name: "FurifontResources", condition: .when(traits: ["BundledFont"]))
-        ]),
+        .target(
+            name: "Furifont",
+            dependencies: [
+                .target(name: "FurifontResources", condition: .when(traits: ["BundledFont"]))
+            ]),
         .target(name: "FurifontResources", resources: [.process("Resources")]),
         .testTarget(name: "FurifontTests", dependencies: ["Furifont"], resources: [.process("Fixtures")]),
-        .testTarget(name: "FurifontSwiftUITests", dependencies: ["Furifont"])
     ]
 )

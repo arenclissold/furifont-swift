@@ -42,33 +42,21 @@ public struct FurifontConfiguration: Sendable {
     /// Registers a local font and discovers its PostScript name automatically.
     /// Loading or registration errors throw. Registering the same file again is safe.
     public init(fontURL: URL, readings: FurifontReadings) throws {
-        guard fontURL.isFileURL else { throw LoadingError.fileURLRequired }
-        guard let descriptors = CTFontManagerCreateFontDescriptorsFromURL(fontURL as CFURL) as? [CTFontDescriptor],
-              let descriptor = descriptors.first,
-              let name = CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute) as? String else {
-            throw LoadingError.invalidFont
-        }
-        var error: Unmanaged<CFError>?
-        if !CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error) {
-            guard let failure = error?.takeRetainedValue() else {
-                throw LoadingError.registrationFailed("Font registration failed without an error description.")
-            }
-            guard CFErrorGetCode(failure) == CTFontManagerError.alreadyRegistered.rawValue else {
-                throw LoadingError.registrationFailed(CFErrorCopyDescription(failure) as String)
-            }
-        }
-        self.init(fontName: name, readings: readings)
+        try self.init(fontName: Self.registerFont(at: fontURL), readings: readings)
     }
 
     /// Loads `name.ttf`, `name.ivs.json`, and `okurigana.json` from a bundle.
     /// Use `fontExtension` for OTF builds and `okuriganaResource` for another table filename.
-    public init(fontResource: String, bundle: Bundle = .main, fontExtension: String = "ttf",
-                okuriganaResource: String = "okurigana") throws {
+    public init(
+        fontResource: String, bundle: Bundle = .main, fontExtension: String = "ttf",
+        okuriganaResource: String = "okurigana"
+    ) throws {
         guard let url = bundle.url(forResource: fontResource, withExtension: fontExtension) else {
             throw LoadingError.resourceNotFound(fontResource + "." + fontExtension)
         }
-        let readings = try FurifontReadings(fontResource: fontResource, bundle: bundle,
-                                           okuriganaResource: okuriganaResource)
+        let readings = try FurifontReadings(
+            fontResource: fontResource, bundle: bundle,
+            okuriganaResource: okuriganaResource)
         try self.init(fontURL: url, readings: readings)
     }
 
@@ -94,19 +82,21 @@ public struct FurifontConfiguration: Sendable {
     /// Creates a Core Text font for SwiftUI, UIKit, AppKit, or your own renderer.
     /// Weight uses the OpenType 100–900 scale. Ruby visibility uses Furifont's `ss01` feature.
     public func makeFont(size: CGFloat, weight: Double = 400, showsFurigana: Bool = true) -> CTFont {
-        var axes: [NSNumber: Double] = [NSNumber(value: 0x77676874): weight]
+        var axes: [NSNumber: Double] = [NSNumber(value: 0x7767_6874): weight]
         for (tag, value) in variations {
             if let identifier = Self.tagIdentifier(tag) { axes[NSNumber(value: identifier)] = value }
         }
         var settings = features.filter { Self.tagIdentifier($0.key) != nil }
         settings["ss01"] = showsFurigana ? 0 : 1
-        let descriptor = CTFontDescriptorCreateWithAttributes([
-            kCTFontNameAttribute: fontName,
-            kCTFontVariationAttribute: axes,
-            kCTFontFeatureSettingsAttribute: settings.sorted { $0.key < $1.key }.map { tag, value in
-                [kCTFontOpenTypeFeatureTag: tag, kCTFontOpenTypeFeatureValue: value] as [CFString: Any]
-            }
-        ] as CFDictionary)
+        let descriptor = CTFontDescriptorCreateWithAttributes(
+            [
+                kCTFontNameAttribute: fontName,
+                kCTFontVariationAttribute: axes,
+                kCTFontFeatureSettingsAttribute: settings.sorted { $0.key < $1.key }.map { tag, value in
+                    [kCTFontOpenTypeFeatureTag: tag, kCTFontOpenTypeFeatureValue: value]
+                        as [CFString: Any]
+                },
+            ] as CFDictionary)
         return CTFontCreateWithFontDescriptor(descriptor, max(1, size), nil)
     }
 
@@ -116,8 +106,34 @@ public struct FurifontConfiguration: Sendable {
         return bytes.reduce(0) { ($0 << 8) | UInt32($1) }
     }
 
-    static func plain(_ text: String) -> String {
-        String(text.unicodeScalars.filter { !(0xE01E0...0xE01EF).contains($0.value) })
+    /// Furifont includes ruby in its metrics, so only add missing leading.
+    func additionalLineSpacing(for font: CTFont) -> CGFloat {
+        let minimumHeight = CTFontGetSize(font) * max(1, lineHeightMultiple)
+        let fontHeight = CTFontGetAscent(font) + CTFontGetDescent(font) + CTFontGetLeading(font)
+        return max(0, minimumHeight - fontHeight)
+    }
+
+    private static func registerFont(at url: URL) throws -> String {
+        guard url.isFileURL else { throw LoadingError.fileURLRequired }
+        guard
+            let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL)
+                as? [CTFontDescriptor],
+            let descriptor = descriptors.first,
+            let name = CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute) as? String
+        else {
+            throw LoadingError.invalidFont
+        }
+        var error: Unmanaged<CFError>?
+        if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
+            guard let failure = error?.takeRetainedValue() else {
+                throw LoadingError.registrationFailed(
+                    "Font registration failed without an error description.")
+            }
+            guard CFErrorGetCode(failure) == CTFontManagerError.alreadyRegistered.rawValue else {
+                throw LoadingError.registrationFailed(CFErrorCopyDescription(failure) as String)
+            }
+        }
+        return name
     }
 }
 #endif

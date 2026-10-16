@@ -8,32 +8,51 @@ jobs:
   test:
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
-        traits: ["", "--traits BundledFont"]
+        include:
+          - configuration: custom
+            traits: ""
+            consumer: ""
+          - configuration: bundled
+            traits: "--traits BundledFont"
+            consumer: "--bundled-font"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Check formatting
+        if: matrix.configuration == 'custom'
+        run: swift format lint --strict --recursive Package.swift Sources Tests Scripts
       - run: swift test --parallel ${{ matrix.traits }}
       - run: swift build -c release ${{ matrix.traits }}
-      - run: python3 Scripts/check-consumer.py ${{ matrix.traits }}
+      - run: swift Scripts/check-consumer.swift ${{ matrix.consumer }}
   linux:
     runs-on: ubuntu-latest
     container: swift:6.2
     strategy:
+      fail-fast: false
       matrix:
-        traits: ["", "--traits BundledFont"]
+        include:
+          - configuration: custom
+            traits: ""
+            consumer: ""
+          - configuration: bundled
+            traits: "--traits BundledFont"
+            consumer: "--bundled-font"
     steps:
-      - uses: actions/checkout@v4
-      - name: Install consumer-check dependency
-        run: apt-get update && apt-get install -y --no-install-recommends python3
+      - uses: actions/checkout@v7
       - run: swift test --parallel ${{ matrix.traits }}
       - run: swift build -c release ${{ matrix.traits }}
-      - run: python3 Scripts/check-consumer.py ${{ matrix.traits }}
+      - run: swift Scripts/check-consumer.swift ${{ matrix.consumer }}
   ios:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build SwiftUI product for iOS
-        run: >-
-          xcodebuild -scheme Furifont
-          -destination 'generic/platform=iOS Simulator'
-          -derivedDataPath .build/ios build CODE_SIGNING_ALLOWED=NO
+      - uses: actions/checkout@v7
+      - name: Test on iOS Simulator
+        run: |
+          simulator_id=$(xcrun simctl list devices available | sed -nE '/iPhone/s/.*\(([A-F0-9-]{36})\).*/\1/p' | head -n 1)
+          test -n "$simulator_id"
+          xcodebuild -scheme Furifont \
+            -destination "platform=iOS Simulator,id=$simulator_id" \
+            -derivedDataPath .build/ios \
+            -resultBundlePath .build/ios-tests.xcresult \
+            -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO

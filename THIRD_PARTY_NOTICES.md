@@ -44,7 +44,7 @@ and matching reading tables. These resources are not MIT licensed:
 
 Full licences and source credits are included in
 `Sources/FurifontResources/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
-See `Resources/NOTICE.md` for exact upstream locations. Applications distributing
+See [resource notices](Sources/FurifontResources/Resources/NOTICE.md) for exact upstream locations. Applications distributing
 these resources should include the upstream credits in their acknowledgements.
 This package's MIT licence applies to its code, not those font or data resources.
 

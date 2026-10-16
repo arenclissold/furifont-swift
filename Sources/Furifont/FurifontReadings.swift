@@ -18,8 +18,10 @@ public struct FurifontReadings: Sendable {
         public let salt: Bool
 
         /// Word readings use upstream bracket notation, e.g. `今[こん]日[にち]`.
-        public init(kanji: [String: [String]], words: [String: [String]],
-                    lone: [String: String], salt: Bool = true) {
+        public init(
+            kanji: [String: [String]], words: [String: [String]],
+            lone: [String: String], salt: Bool = true
+        ) {
             self.kanji = kanji
             self.words = words
             self.lone = lone
@@ -50,9 +52,12 @@ public struct FurifontReadings: Sendable {
         let reading: String
     }
 
-    private let lists: Lists
+    private let kanjiReadings: [String: [String]]
+    private let wordReadings: [String: [String]]
+    private let defaultReadings: [String: String]
     private let endings: [String: [Ending]]
-    private static let runs = try! NSRegularExpression(pattern: #"(?<![\p{Han}\x{E01E0}-\x{E01EF}])\p{Han}+(?=\p{Hiragana})"#)
+    private static let runs = try! NSRegularExpression(
+        pattern: #"(?<![\p{Han}\x{E01E0}-\x{E01EF}])\p{Han}+(?=\p{Hiragana})"#)
     private static let ruby = try! NSRegularExpression(pattern: #"\[([^\]]*)\]"#)
 
     /// Initializes with decoded upstream tables.
@@ -62,7 +67,9 @@ public struct FurifontReadings: Sendable {
     /// An empty reading denotes ambiguity and prevents a shorter pair from winning.
     public init(lists: Lists, pairs: [String: [String: [String]]]) throws {
         guard lists.salt else { throw LoadingError.unsupportedFont }
-        self.lists = lists
+        kanjiReadings = lists.kanji
+        wordReadings = lists.words.mapValues { $0.map(Self.readingInNotation) }
+        defaultReadings = lists.lone
         self.endings = pairs.mapValues { readings in
             readings.flatMap { reading, suffixes in
                 suffixes.filter { !$0.isEmpty }.map { Ending(text: $0, reading: reading) }
@@ -79,14 +86,16 @@ public struct FurifontReadings: Sendable {
     /// Decodes the font's `.ivs.json` and packed okurigana JSON.
     public init(readingsData: Data, okuriganaData: Data) throws {
         let decoder = JSONDecoder()
-        try self.init(lists: decoder.decode(Lists.self, from: readingsData),
-                      pairs: decoder.decode([String: [String: [String]]].self, from: okuriganaData))
+        try self.init(
+            lists: decoder.decode(Lists.self, from: readingsData),
+            pairs: decoder.decode([String: [String: [String]]].self, from: okuriganaData))
     }
 
     /// Loads local resource files. Construct once and reuse, preferably away from the UI thread.
     public init(readingsURL: URL, okuriganaURL: URL) throws {
         guard readingsURL.isFileURL, okuriganaURL.isFileURL else { throw LoadingError.fileURLsRequired }
-        try self.init(readingsData: Data(contentsOf: readingsURL), okuriganaData: Data(contentsOf: okuriganaURL))
+        try self.init(
+            readingsData: Data(contentsOf: readingsURL), okuriganaData: Data(contentsOf: okuriganaURL))
     }
 
     /// Loads matching JSON files by font resource name from a bundle.
@@ -94,8 +103,10 @@ public struct FurifontReadings: Sendable {
     /// For `fontResource: "FurifontSerifVF"`, loads `FurifontSerifVF.ivs.json`
     /// and `okurigana.json`. Supply the resource filename stem, not the font's
     /// PostScript name. Use `okuriganaResource` for a differently named packed table.
-    public init(fontResource: String, bundle: Bundle = .main,
-                okuriganaResource: String = "okurigana") throws {
+    public init(
+        fontResource: String, bundle: Bundle = .main,
+        okuriganaResource: String = "okurigana"
+    ) throws {
         guard let readingsURL = bundle.url(forResource: fontResource + ".ivs", withExtension: "json") else {
             throw LoadingError.resourceNotFound(fontResource + ".ivs.json")
         }
@@ -113,7 +124,8 @@ public struct FurifontReadings: Sendable {
             let run = String(text[range])
             let following = text[range.upperBound...]
             guard let ending = endings[run]?.first(where: { following.hasPrefix($0.text) }),
-                  !ending.reading.isEmpty else { return nil }
+                !ending.reading.isEmpty
+            else { return nil }
             let salt = salt(for: run, reading: ending.reading)
             guard salt > 0 else { return nil }
             return Match(range: match.range, reading: ending.reading, salt: salt)
@@ -124,7 +136,8 @@ public struct FurifontReadings: Sendable {
     /// This follows upstream `createOkuriganaReader().saltOf` semantics.
     public func salt(for run: String, reading: String) -> Int {
         guard let index = readingIndex(for: run, reading: reading),
-              index >= (run.unicodeScalars.count > 1 ? 1 : 0), lists.lone[run] != reading else { return 0 }
+            index >= (run.unicodeScalars.count > 1 ? 1 : 0), defaultReadings[run] != reading
+        else { return 0 }
         return index + 1
     }
 
@@ -138,7 +151,8 @@ public struct FurifontReadings: Sendable {
         // Reverse order preserves the original UTF-16 locations as selectors are inserted.
         for match in matches(in: text).reversed() {
             guard let range = Range(match.range, in: result),
-                  let selector = Unicode.Scalar(0xE01E0 + match.salt) else { continue }
+                let selector = FurifontSelectors.scalar(forSalt: match.salt)
+            else { continue }
             let afterFirst = result.unicodeScalars.index(after: range.lowerBound)
             result.insert(contentsOf: String(selector), at: afterFirst)
         }
@@ -148,21 +162,25 @@ public struct FurifontReadings: Sendable {
     /// Selects an explicit reading, including a default. Empty reading means VS225 (hide ruby).
     /// Returns nil when the font cannot supply the reading; no reading is invented.
     public func selector(for run: String, reading: String) -> Unicode.Scalar? {
-        if reading.isEmpty { return Unicode.Scalar(0xE01E0) }
+        if reading.isEmpty { return FurifontSelectors.scalar(forSalt: 0) }
         guard let index = readingIndex(for: run, reading: reading) else { return nil }
-        return Unicode.Scalar(0xE01E1 + index)
+        return FurifontSelectors.scalar(forSalt: index + 1)
     }
 
     /// Returns a run with an explicit reading selector, or nil if unsupported or the run is empty.
     /// Unlike `annotateOkurigana`, this does not infer a reading from context.
     public func annotated(_ run: String, reading: String) -> String? {
-        guard let first = run.unicodeScalars.first, let selector = selector(for: run, reading: reading) else { return nil }
+        guard let first = run.unicodeScalars.first, let selector = selector(for: run, reading: reading) else {
+            return nil
+        }
         return String(first) + String(selector) + String(run.unicodeScalars.dropFirst())
     }
 
     private func readingIndex(for run: String, reading: String) -> Int? {
-        let readings = run.unicodeScalars.count > 1 ? lists.words[run]?.map(Self.readingInNotation) : lists.kanji[run]
-        guard let index = readings?.firstIndex(of: reading), index < 15 else { return nil }
+        let readings = run.unicodeScalars.count > 1 ? wordReadings[run] : kanjiReadings[run]
+        guard let index = readings?.firstIndex(of: reading), index < FurifontSelectors.maximumReadings else {
+            return nil
+        }
         return index
     }
 
