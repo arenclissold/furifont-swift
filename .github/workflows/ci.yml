@@ -23,6 +23,8 @@ jobs:
         traits: ["", "--traits BundledFont"]
     steps:
       - uses: actions/checkout@v4
+      - name: Install consumer-check dependency
+        run: apt-get update && apt-get install -y --no-install-recommends python3
       - run: swift test --parallel ${{ matrix.traits }}
       - run: swift build -c release ${{ matrix.traits }}
       - run: python3 Scripts/check-consumer.py ${{ matrix.traits }}
