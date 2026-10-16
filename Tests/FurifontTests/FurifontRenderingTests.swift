@@ -42,6 +42,39 @@ struct FurifontRenderingTests {
         #expect(explicit != baseline)
     }
 
+    @MainActor @Test func annotatedViewRendersExplicitSelectorsAndHidesCleanly() throws {
+        guard #available(iOS 16.0, tvOS 16.0, *) else { return }
+        let notation = "今日[こんにち]、来[く]ない。"
+        let explicit = try renderPNG(FurifontText(annotated: notation))
+        let selected = try renderPNG(FurifontText("今\u{E01E2}日、来\u{E01E4}ない。"))
+        let inferred = try renderPNG(FurifontText("今日、来ない。"))
+        #expect(explicit == selected)
+        #expect(explicit != inferred)
+        let hidden = try renderPNG(FurifontText(annotated: notation, showsFurigana: false))
+        let plain = try renderPNG(FurifontText("今日、来ない。", showsFurigana: false))
+        #expect(hidden == plain)
+    }
+
+    @MainActor @Test func partialAnnotationKeepsItsReadingNextToUnannotatedKanji() throws {
+        guard #available(iOS 16.0, tvOS 16.0, *) else { return }
+        let actual = try renderPNG(FurifontText(annotated: "今[こん]日"))
+        let separated = try renderPNG(
+            HStack(spacing: 0) {
+                FurifontText(annotated: "今[こん]")
+                FurifontText("日")
+            })
+        let wholeWord = try renderPNG(FurifontText("今日"))
+        #expect(actual == separated)
+        #expect(actual != wholeWord)
+    }
+
+    @MainActor @Test func emptyAndUnavailableWordReadingsRenderWithoutRuby() throws {
+        guard #available(iOS 16.0, tvOS 16.0, *) else { return }
+        let plain = try renderPNG(FurifontText("今日", showsFurigana: false))
+        #expect(try renderPNG(FurifontText(annotated: "今日[]")) == plain)
+        #expect(try renderPNG(FurifontText(annotated: "今日[とくべつ]")) == plain)
+    }
+
     #else
     @MainActor @Test func withoutBundledFontRendersPlainSource() throws {
         guard #available(iOS 16.0, tvOS 16.0, *) else { return }
@@ -50,6 +83,16 @@ struct FurifontRenderingTests {
             Text("来ない").font(.system(size: 28, weight: .regular, design: .serif)))
         #expect(actual == plain)
     }
+
+    @MainActor @Test func annotatedViewWithoutResourcesUsesCleanPlainText() throws {
+        guard #available(iOS 16.0, tvOS 16.0, *) else { return }
+        let actual = try renderPNG(FurifontText(annotated: "今日[こんにち] [note]"))
+        let plain = try renderPNG(FurifontText("今日 [note]"))
+        let literal = try renderPNG(FurifontText("今日[こんにち] [note]"))
+        #expect(actual == plain)
+        #expect(actual != literal)
+    }
+
     #endif
 
     @available(iOS 16.0, tvOS 16.0, *)

@@ -26,6 +26,39 @@ copy. Both methods throw `LoadingError.bundledFontNotEnabled` when the trait is 
 Otherwise, loading and registration errors throw; the automatic view setup falls
 back to plain source text if preparation fails.
 
+## Explicit reading notation
+
+```swift
+FurifontText(annotated: "今日[こんにち]は、食[た]べる。来ない。")
+```
+
+A kanji run immediately followed by `[reading]` selects that reading from the
+configured font's matching tables. A whole word such as `今日[こんにち]` uses its
+word entry; `今[こん]日[にち]` selects individual kanji readings. Explicit choices
+win over okurigana inference. Unannotated text still gets automatic corrections.
+
+- `今日[]` hides ruby on every kanji in that annotation.
+- A reading absent from the tables also hides the entire annotated run's ruby.
+  This includes words absent from the word table, even if the font knows a default
+  reading for them. Annotate individual kanji when those readings are available.
+- Readings cannot contain brackets or line breaks. Malformed and nested annotations
+  remain literal, as do other brackets such as `English [note]` and `かな[かな]`.
+- `showsFurigana: false`, accessibility labels, and the fallback when no font is
+  configured use the base text, without recognized brackets or reading text.
+- The ordinary `FurifontText("...")` initializer always keeps brackets literal.
+
+The same processing is available outside SwiftUI:
+
+```swift
+let display = readings.annotateReadings("今日[こんにち]、来ない。")
+```
+
+The result uses the matching font's variation selectors and, where adjacent kanji
+require it, invisible shaping boundaries that preserve an explicit reading. Keep source notation for
+editing and storage; it is not suitable as an accessibility label. The SwiftUI
+view manages its clean accessibility label automatically. Unsupported readings are
+not synthesized or drawn as custom ruby.
+
 ## Custom fonts and resources
 
 Bundle a compatible Furifont build: the native `.ttf` or `.otf`, its matching
@@ -109,7 +142,7 @@ for match in readings.matches(in: source) {
 }
 
 let alternate = readings.annotated("今日", reading: "こんにち") // Optional<String>
-let hidden = readings.annotated("今日", reading: "")          // VS225: no ruby
+let hidden = readings.annotated("来", reading: "")           // VS225: no ruby
 let unknown = readings.annotated("今日", reading: "とくべつ") // nil
 ```
 
@@ -127,8 +160,9 @@ unavailable or already the default. `matches(in:)` reports corrections in source
 - Existing variation selectors are preserved; processing the output again is safe.
 - This is a table-based helper, not a tokenizer or a general Japanese reading engine.
   It cannot infer arbitrary readings or create glyphs missing from the font.
-- The SwiftUI view accepts normal Japanese text and font variation selectors.
-  It does not parse bracket notation or draw arbitrary custom readings.
+- The ordinary SwiftUI initializer accepts Japanese text and font variation selectors.
+  The `annotated:` initializer additionally parses bracket readings; neither draws
+  arbitrary custom readings.
 
 For the core API, keep the source string for storage, search, copying, and
 accessibility. Transformed strings contain real, invisible Unicode characters.

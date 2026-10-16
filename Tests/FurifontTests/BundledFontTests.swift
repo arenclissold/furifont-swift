@@ -18,6 +18,13 @@ struct BundledFontTests {
                 == "来\u{E01E5}ない、来\u{E01E2}ます、来\u{E01E4}る")
     }
 
+    @Test func explicitReadingsUseTheBundledTables() throws {
+        let readings = try FurifontConfiguration.bundled().readings
+        #expect(
+            readings.annotateReadings("今日[こんにち]、来[く]ない。")
+                == "今\u{E01E2}日、来\u{E01E4}ない。")
+    }
+
     @Test func registeringTheBundledFontAgainIsSafe() throws {
         _ = try FurifontConfiguration.bundled()
         let second = try FurifontConfiguration(

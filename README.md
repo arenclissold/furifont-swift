@@ -58,6 +58,27 @@ are fetched at runtime. Traits are additive: another dependency enabling
 `BundledFont` will include its assets. Swift 6.2+ is required to exclude disabled
 optional targets correctly.
 
+## Explicit readings
+
+Use the opt-in `annotated:` initializer to choose readings:
+
+```swift
+FurifontText(annotated: "今日[こんにち]は、来ない。")
+FurifontText(annotated: "食[た]べる", showsFurigana: false) // Displays 食べる.
+FurifontText(annotated: "今日[]") // Hides ruby for this word.
+```
+
+Explicit readings take precedence; ordinary text still gets okurigana-aware
+readings. Accessibility, hidden furigana, and the fallback without a configured
+font use the base text without annotation markup. `FurifontText("...")` keeps
+brackets literal.
+
+Readings must be listed in the chosen font's matching tables. Empty or unsupported
+readings show the entire annotated run without ruby. For a word absent from the
+word table, annotate individual kanji if those readings are available. This API
+does not draw arbitrary readings. See the [usage guide](Documentation/Usage.md#explicit-reading-notation)
+for the syntax and lower-level API.
+
 ## Custom fonts and appearance
 
 Bundle a compatible Furifont build and its matching reading tables:
@@ -92,7 +113,7 @@ AppKit, or custom renderers.
 See the [usage guide](Documentation/Usage.md) for loading options, explicit
 readings, rendering APIs, accessibility, and limitations. The helper selects
 readings from tables; it is not a tokenizer and cannot invent missing readings.
-`FurifontText` does not parse bracket notation.
+Bracket notation is parsed only by the `annotated:` initializer.
 
 ## Development
 

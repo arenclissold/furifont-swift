@@ -42,6 +42,7 @@ let source = """
         lists: .init(kanji: ["来": ["らい", "こ"]], words: [:], lone: ["来": "らい"]),
         pairs: ["来": ["こ": ["ない"]]])
     precondition(readings.annotateOkurigana("来ない") == "来\\u{E01E2}ない")
+    precondition(readings.annotateReadings("来[らい]ない") == "来\\u{E01E1}ない")
     #if canImport(CoreText)
     \(fontCheck)
     #endif

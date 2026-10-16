@@ -2,7 +2,8 @@
 
 /// Unicode selectors supported by Furifont: VS225 hides ruby, VS226–VS240 select readings.
 enum FurifontSelectors {
-    static let hidden: UInt32 = 0xE01E0
+    private static let hiddenScalar: Unicode.Scalar = "\u{E01E0}"
+    static let hidden = hiddenScalar.value
     static let maximumReadings = 15
 
     static func scalar(forSalt salt: Int) -> Unicode.Scalar? {
@@ -15,5 +16,10 @@ enum FurifontSelectors {
             text.unicodeScalars.filter {
                 !(hidden...hidden + UInt32(maximumReadings)).contains($0.value)
             })
+    }
+
+    /// The caller supplies a run of kanji with existing selectors removed.
+    static func suppressRuby(in kanji: String) -> String {
+        kanji.unicodeScalars.map { String($0) + String(hiddenScalar) }.joined()
     }
 }
