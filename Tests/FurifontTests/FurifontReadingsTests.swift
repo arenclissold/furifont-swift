@@ -121,4 +121,19 @@ struct FurifontReadingsTests {
         let reader = try FurifontReadings(readingsURL: listsURL, okuriganaURL: pairsURL)
         #expect(reader.annotateOkurigana("来ない") == "来\u{E01E1}ない")
     }
+    @Test func loadsNamedResourcesFromSpecifiedBundle() throws {
+        let bundle = Bundle.module
+        let reader = try FurifontReadings(fontResource: "Example", bundle: bundle)
+        #expect(reader.annotateOkurigana("来ない") == "来\u{E01E2}ない")
+        let custom = try FurifontReadings(fontResource: "Example", bundle: bundle,
+                                         okuriganaResource: "custom-pairs")
+        #expect(custom.annotateOkurigana("来なかった") == "来\u{E01E2}なかった")
+        #expect(throws: FurifontReadings.LoadingError.resourceNotFound("Absent.ivs.json")) {
+            try FurifontReadings(fontResource: "Absent", bundle: bundle)
+        }
+        #expect(throws: FurifontReadings.LoadingError.resourceNotFound("absent-pairs.json")) {
+            try FurifontReadings(fontResource: "Example", bundle: bundle, okuriganaResource: "absent-pairs")
+        }
+    }
+
 }

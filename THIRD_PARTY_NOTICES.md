@@ -36,13 +36,24 @@ SOFTWARE.
 
 ## Fonts and reading data
 
-This package includes no font files or upstream dictionary data. Test tables are
-small synthetic fixtures written for this package. Font files and matching reading
-data supplied by an application retain their own licences:
+The `Furifont` core product includes no font files or upstream dictionary data.
+Its tests use small synthetic fixtures written for this package.
 
-- Furifont fonts: SIL Open Font License 1.1.
-- Furifont compiled dictionary/reading data: CC BY-SA 4.0, with upstream source credits.
+The optional `FurifontSwiftUI` product bundles unmodified Furifont Serif VF v0.3.0
+and matching reading tables. These resources are not MIT licensed:
 
-See https://github.com/antfu/furifont/tree/v0.3.0 and the notices distributed with
-the font release or custom build you use. This package's MIT licence applies to
-its code and does not replace the licences of separately obtained resources.
+- `FurifontSerifVF.ttf`: SIL OFL 1.1, derived from Adobe Source Han Serif.
+- `FurifontSerifVF.ivs.json` and `okurigana.json`: CC BY-SA 4.0, with upstream source credits.
+
+Full licences and source credits are included in
+`Sources/FurifontSwiftUI/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
+See `Resources/NOTICE.md` for exact upstream locations. Applications distributing
+the optional resources should include the upstream credits in their acknowledgements.
+This package's MIT licence applies to its code, not those font or data resources.
+
+The resources are unchanged from https://github.com/antfu/furifont/tree/v0.3.0.
+SHA-256:
+
+- Font: `c34ee815684e643b7c9a3cf9b96f227a3f6c8ff9242b9bb1bd6e825f5c96bb64`
+- Reading lists: `1a1fee335de5534ba09480ae2f2a2e0c8f321ec2d89d94f4fe030cb583211876`
+- Okurigana pairs: `8ab945b0c3ecb585e7f37bf08d1692b4b103571f9c0abd808f3d9d58703b5057`

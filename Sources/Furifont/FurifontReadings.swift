@@ -32,6 +32,8 @@ public struct FurifontReadings: Sendable {
         case unsupportedFont
         /// Resource loading accepts local files only; downloading is the caller's responsibility.
         case fileURLsRequired
+        /// A named JSON resource could not be found in the supplied bundle.
+        case resourceNotFound(String)
     }
 
     /// A reading correction in the original, unmodified input.
@@ -85,6 +87,22 @@ public struct FurifontReadings: Sendable {
     public init(readingsURL: URL, okuriganaURL: URL) throws {
         guard readingsURL.isFileURL, okuriganaURL.isFileURL else { throw LoadingError.fileURLsRequired }
         try self.init(readingsData: Data(contentsOf: readingsURL), okuriganaData: Data(contentsOf: okuriganaURL))
+    }
+
+    /// Loads matching JSON files by font resource name from a bundle.
+    ///
+    /// For `fontResource: "FurifontSerifVF"`, loads `FurifontSerifVF.ivs.json`
+    /// and `okurigana.json`. Supply the resource filename stem, not the font's
+    /// PostScript name. Use `okuriganaResource` for a differently named packed table.
+    public init(fontResource: String, bundle: Bundle = .main,
+                okuriganaResource: String = "okurigana") throws {
+        guard let readingsURL = bundle.url(forResource: fontResource + ".ivs", withExtension: "json") else {
+            throw LoadingError.resourceNotFound(fontResource + ".ivs.json")
+        }
+        guard let okuriganaURL = bundle.url(forResource: okuriganaResource, withExtension: "json") else {
+            throw LoadingError.resourceNotFound(okuriganaResource + ".json")
+        }
+        try self.init(readingsURL: readingsURL, okuriganaURL: okuriganaURL)
     }
 
     /// Corrections selected by the longest matching okurigana prefix.
