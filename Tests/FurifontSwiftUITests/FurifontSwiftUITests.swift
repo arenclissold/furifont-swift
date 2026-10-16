@@ -6,6 +6,7 @@ import Testing
 @testable import Furifont
 
 struct FurifontSwiftUITests {
+    #if BundledFont
     @Test func bundledResourcesLoadAndRegisterWithoutSetup() throws {
         try FurifontText.prepare()
         try FurifontText.prepare()
@@ -19,7 +20,7 @@ struct FurifontSwiftUITests {
 
     @Test func registeringTheBundledFontAgainIsSafe() throws {
         _ = try FurifontConfiguration.bundled()
-        let second = try FurifontConfiguration(fontResource: "FurifontSerifVF", bundle: .module)
+        let second = try FurifontConfiguration(fontResource: "FurifontSerifVF", bundle: FurifontConfiguration.bundledResources)
         #expect(second.fontName == "FurifontSerifVF-ExtraLight")
     }
 
@@ -47,7 +48,7 @@ struct FurifontSwiftUITests {
         let readings = try FurifontReadings(
             lists: .init(kanji: ["来": ["らい", "こ"]], words: [:], lone: ["来": "らい"]),
             pairs: ["来": ["こ": ["ない"]]])
-        let url = try #require(Bundle.module.url(forResource: "FurifontSerifVF", withExtension: "ttf"))
+        let url = try #require(FurifontConfiguration.bundledResources.url(forResource: "FurifontSerifVF", withExtension: "ttf"))
         var custom = try FurifontConfiguration(fontURL: url, readings: readings)
         custom.variations = ["wght": 600, "invalid": 900]
         custom.features = ["ss01": 1, "bad": 1]
@@ -72,7 +73,7 @@ struct FurifontSwiftUITests {
             try FurifontConfiguration(fontURL: URL(fileURLWithPath: "/missing-font.ttf"), readings: readings)
         }
         #expect(throws: FurifontConfiguration.LoadingError.resourceNotFound("Missing.ttf")) {
-            try FurifontConfiguration(fontResource: "Missing", bundle: .module)
+            try FurifontConfiguration(fontResource: "Missing", bundle: FurifontConfiguration.bundledResources)
         }
     }
 
@@ -92,7 +93,32 @@ struct FurifontSwiftUITests {
             .lineLimit(2)
             .dynamicTypeSize(.accessibility1)
     }
+    #else
+    @Test func bundledFontIsExplicitlyUnavailable() {
+        #expect(throws: FurifontConfiguration.LoadingError.bundledFontNotEnabled) {
+            try FurifontConfiguration.bundled()
+        }
+        #expect(throws: FurifontConfiguration.LoadingError.bundledFontNotEnabled) {
+            try FurifontText.prepare()
+        }
+    }
+
+    @Test func customReadingsAndRegisteredFontsNeedNoBundledAssets() throws {
+        let readings = try FurifontReadings(
+            lists: .init(kanji: ["来": ["らい", "こ"]], words: [:], lone: ["来": "らい"]),
+            pairs: ["来": ["こ": ["ない"]]])
+        let native = CTFontCreateWithName("HiraginoSans-W3" as CFString, 28, nil)
+        let name = CTFontCopyPostScriptName(native) as String
+        let configuration = FurifontConfiguration(fontName: name, readings: readings)
+        #expect(configuration.readings.annotateOkurigana("来ない") == "来\u{E01E2}ない")
+        #expect(CTFontCopyPostScriptName(configuration.makeFont(size: 32)) as String == name)
+        #expect(CTFontGetSize(configuration.makeFont(size: 32)) == 32)
+    }
+    #endif
+
 }
+
+#if BundledFont
 private func glyphs(_ font: CTFont) -> [CGGlyph] {
     let line = CTLineCreateWithAttributedString(NSAttributedString(string: "今日", attributes: [
         NSAttributedString.Key(kCTFontAttributeName as String): font
@@ -103,4 +129,5 @@ private func glyphs(_ font: CTFont) -> [CGGlyph] {
         return result
     }
 }
+#endif
 #endif

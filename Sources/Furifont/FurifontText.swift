@@ -5,10 +5,11 @@ import SwiftUI
 
 /// Japanese text with Furifont Serif and okurigana-aware furigana, ready to use.
 ///
-/// The Furifont product bundles Furifont Serif VF v0.3.0 and its
+/// The optional BundledFont package trait includes Furifont Serif VF v0.3.0 and its
 /// matching reading tables. No Info.plist entries or manual registration are needed.
 /// The original source string is used for accessibility. The view respects Dynamic Type
 /// and inherits text color, alignment, selection, and line limits from SwiftUI.
+/// Without that trait, supply a custom configuration; otherwise plain text is displayed.
 ///
 ///     FurifontText("来ない、来ます、来る。")
 ///     FurifontText("今日は日本語を勉強します。", size: 32, weight: .medium)
@@ -38,6 +39,7 @@ public struct FurifontText: View {
     /// The first view otherwise prepares them automatically. Preparation is cached
     /// and safe to call repeatedly or from a background task. If automatic preparation
     /// fails, the view displays plain source text; call this method to handle errors explicitly.
+    /// Requires the BundledFont package trait. Custom configurations are prepared by their initializer.
     public nonisolated static func prepare() throws {
         _ = try FurifontConfiguration.bundled()
     }

@@ -1,5 +1,7 @@
 # Furifont Swift
 
+Version 0.1 — in development.
+
 Japanese text with furigana and okurigana-aware readings in Swift apps.
 Powered by [Furifont](https://furifont.antfu.me/) and a native Swift port of its
 [okurigana helper](https://github.com/antfu/furifont/blob/v0.3.0/packages/helper-web/src/okurigana.ts).
@@ -7,8 +9,21 @@ No JavaScript or web view needed.
 
 ## Quick start: SwiftUI
 
-Add `https://github.com/arenclissold/furifont-swift` in Xcode's package dependencies
-and select the **Furifont** product. Then:
+Add the **Furifont** product and enable the **BundledFont** package trait for the
+ready-to-use Serif preset. In `Package.swift`:
+
+```swift
+.package(
+    url: "https://github.com/arenclissold/furifont-swift.git",
+    exact: "0.1.0",
+    traits: ["BundledFont"]
+)
+
+// Your target's dependencies:
+.product(name: "Furifont", package: "furifont-swift")
+```
+
+Then:
 
 ```swift
 import Furifont
@@ -18,7 +33,7 @@ FurifontText("来ない、来ます、来る。")
 
 <img src="Documentation/quick-start.png" alt="Furifont Serif with context-sensitive readings, a medium-weight sentence, and text with furigana hidden" width="390">
 
-That's it. The product includes Furifont Serif VF v0.3.0, its matching
+The trait includes Furifont Serif VF v0.3.0, its matching
 reading tables, and automatic font registration. You don't need to download
 files, look up font names, or change Info.plist.
 
@@ -47,30 +62,41 @@ back to plain source text; `prepare()` lets you handle that error explicitly.
 The bundled preset is Serif with hiragana readings. The same product supports
 custom Furifont builds and lower-level text renderers.
 
-## One product, one import
+## Keep the build small
+
+There is one product and one import: `Furifont`. Font resources are **opt-in**.
+If you supply your own font and tables, omit the trait:
 
 ```swift
-.package(url: "https://github.com/arenclissold/furifont-swift.git", from: "0.3.0")
-
-// In your target's dependencies:
-.product(name: "Furifont", package: "furifont-swift")
+.package(
+    url: "https://github.com/arenclissold/furifont-swift.git",
+    exact: "0.1.0",
+    traits: []
+)
 ```
 
-Use `import Furifont` for the SwiftUI view, font configuration, and reading APIs.
-The product includes about 24 MB of font and reading resources before app packaging,
-including when you supply your own font. No resources are downloaded at runtime.
+Without `BundledFont`, the library does not link or copy the bundled font or
+reading tables into the consuming app. Custom configurations and all reading
+APIs remain available. `FurifontConfiguration.bundled()` and
+`FurifontText.prepare()` throw `LoadingError.bundledFontNotEnabled`.
+`FurifontText` displays plain text unless you supply a custom configuration.
 
-Requires Swift 6.0+. Supported Apple platforms: iOS 15+, macOS 12+, tvOS 15+,
+Enabling `BundledFont` adds roughly 24 MB before app packaging and makes the
+bundled Serif preset the automatic default. Swift Package Manager still downloads
+the repository when resolving either configuration; no files are downloaded at runtime.
+Traits are additive across the dependency graph: if another dependency enables
+`BundledFont` for this package, those assets will be included.
+
+Requires Swift 6.1+. In [Xcode 26.4 or later](https://developer.apple.com/documentation/xcode-release-notes/xcode-26_4-release-notes),
+enable `BundledFont` in the project’s **Package Dependencies** view. For older Xcode
+versions with Swift 6.1+, declare the dependency in a local Swift package using
+the manifest above. Supported Apple platforms: iOS 15+, macOS 12+, tvOS 15+,
 watchOS 8+. The Foundation reading APIs also run on Linux; font registration and
 SwiftUI rendering are available only on supported Apple platforms.
 
-**Migrating from 0.2:** replace the `FurifontSwiftUI` product dependency and import
-with `Furifont`. Existing `FurifontText` calls and `FurifontReadings` APIs still work.
-Previously core-only consumers now receive the bundled resources too.
-
 ## Customize the bundled font
 
-Create configuration once, then apply it to a view hierarchy:
+With `BundledFont` enabled, create configuration once, then apply it to a view hierarchy:
 
 ```swift
 var appearance = try FurifontConfiguration.bundled()
@@ -124,8 +150,8 @@ PostScript name. Custom fonts must be compatible Furifont builds; the package
 cannot add furigana glyphs to an ordinary Japanese font.
 
 Configuration priority is the view's explicit `configuration:`, then the nearest
-`.furifont(...)` modifier, then bundled Serif. A custom configuration uses its own
-reading tables; bundled tables are never substituted. Custom initialization
+`.furifont(...)` modifier, then bundled Serif when the trait is enabled.
+A custom configuration uses its own reading tables; bundled tables are never substituted. Custom initialization
 throws loading and registration errors. The default view falls back to plain text
 if the bundled preset fails to load; `FurifontText.prepare()` or
 `FurifontConfiguration.bundled()` lets you handle that error explicitly.
@@ -207,23 +233,28 @@ text selection can still copy invisible selectors along with the rendered text.
 
 ```sh
 swift test --parallel
+swift test --parallel --traits BundledFont
 swift build -c release
+python3 Scripts/check-consumer.py
+python3 Scripts/check-consumer.py --traits BundledFont
 ```
 
 Tests cover ambiguity, defaults, words, UTF-16 ranges, supplementary Han,
 resource loading, custom and bundled font registration, configuration overrides,
 variable weights, and ruby hiding.
-Core checks run on macOS and Linux; SwiftUI checks run on Apple platforms.
+Both trait configurations run on macOS and Linux; SwiftUI checks run on Apple
+platforms. Separate consumer checks verify that the font bundle is absent or
+present in build output according to the selected trait.
 
 ## Credits and licences
 
 Code: MIT. Based on Anthony Fu's `@furifont/helper-web` v0.3.0, with a Swift
 adaptation by [arenclissold](https://github.com/arenclissold). This is an independent port.
 
-The bundled resources have separate licences: Furifont Serif is derived from
+The optional bundled resources have separate licences: Furifont Serif is derived from
 Adobe Source Han Serif under SIL OFL 1.1; reading data is CC BY-SA 4.0 with EDRDG,
 JmdictFurigana, Tatoeba, and other upstream credits. Include those credits in your
 application's acknowledgements. Full notices and licences ship in the resource bundle.
 
 See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
-[bundled resource notices](Sources/Furifont/Resources/NOTICE.md).
+[bundled resource notices](Sources/FurifontResources/Resources/NOTICE.md).

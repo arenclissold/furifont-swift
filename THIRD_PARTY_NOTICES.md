@@ -36,14 +36,14 @@ SOFTWARE.
 
 ## Fonts and reading data
 
-The `Furifont` product bundles unmodified Furifont Serif VF v0.3.0
+The optional `BundledFont` trait includes unmodified Furifont Serif VF v0.3.0
 and matching reading tables. These resources are not MIT licensed:
 
 - `FurifontSerifVF.ttf`: SIL OFL 1.1, derived from Adobe Source Han Serif.
 - `FurifontSerifVF.ivs.json` and `okurigana.json`: CC BY-SA 4.0, with upstream source credits.
 
 Full licences and source credits are included in
-`Sources/Furifont/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
+`Sources/FurifontResources/Resources/OFL.txt`, `DATA-LICENSE.md`, and `CC-BY-SA-4.0.txt`.
 See `Resources/NOTICE.md` for exact upstream locations. Applications distributing
 these resources should include the upstream credits in their acknowledgements.
 This package's MIT licence applies to its code, not those font or data resources.

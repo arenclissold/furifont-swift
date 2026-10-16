@@ -5,6 +5,7 @@ import UIKit
 import Furifont
 
 struct SwiftUIPreviewTests {
+    #if BundledFont
     @MainActor @Test func oneLineSetupRendersWithoutAppFontConfiguration() throws {
         guard #available(iOS 16.0, tvOS 16.0, *) else { return }
         let content = VStack(alignment: .leading, spacing: 24) {
@@ -46,6 +47,20 @@ struct SwiftUIPreviewTests {
         #expect(overridden == baseline)
         #expect(explicit != baseline)
     }
+
+    #else
+    @MainActor @Test func withoutBundledFontRendersPlainSource() throws {
+        guard #available(iOS 16.0, tvOS 16.0, *) else { return }
+        func png(_ view: some View) throws -> Data {
+            let renderer = ImageRenderer(content: view.frame(width: 200)
+                .foregroundStyle(.black).background(.white).preferredColorScheme(.light))
+            return try #require(renderer.uiImage?.pngData())
+        }
+        let actual = try png(FurifontText("来\u{E01E5}ない"))
+        let plain = try png(Text("来ない").font(.system(size: 28, weight: .regular, design: .serif)))
+        #expect(actual == plain)
+    }
+    #endif
 
 }
 #endif

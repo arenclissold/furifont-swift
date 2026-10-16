@@ -7,17 +7,25 @@ permissions:
 jobs:
   test:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        traits: ["", "--traits BundledFont"]
     steps:
       - uses: actions/checkout@v4
-      - run: swift test --parallel
-      - run: swift build -c release
+      - run: swift test --parallel ${{ matrix.traits }}
+      - run: swift build -c release ${{ matrix.traits }}
+      - run: python3 Scripts/check-consumer.py ${{ matrix.traits }}
   linux:
     runs-on: ubuntu-latest
-    container: swift:6.0
+    container: swift:6.1
+    strategy:
+      matrix:
+        traits: ["", "--traits BundledFont"]
     steps:
       - uses: actions/checkout@v4
-      - run: swift test --parallel
-      - run: swift build -c release
+      - run: swift test --parallel ${{ matrix.traits }}
+      - run: swift build -c release ${{ matrix.traits }}
+      - run: python3 Scripts/check-consumer.py ${{ matrix.traits }}
   ios:
     runs-on: macos-latest
     steps:

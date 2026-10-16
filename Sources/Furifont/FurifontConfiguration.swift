@@ -2,6 +2,9 @@
 #if canImport(CoreText)
 import CoreText
 import Foundation
+#if BundledFont
+import FurifontResources
+#endif
 
 /// A registered Furifont build, its matching readings, and rendering preferences.
 ///
@@ -21,6 +24,8 @@ public struct FurifontConfiguration: Sendable {
     public var features: [String: Int] = [:]
 
     public enum LoadingError: Error, Equatable, Sendable {
+        /// Enable the BundledFont package trait, or supply a custom configuration.
+        case bundledFontNotEnabled
         case fileURLRequired
         case resourceNotFound(String)
         case invalidFont
@@ -68,14 +73,23 @@ public struct FurifontConfiguration: Sendable {
     }
 
     private static let cachedBundled: Result<Self, any Error> = Result {
-        try Self(fontResource: "FurifontSerifVF", bundle: .module)
+        #if BundledFont
+        try Self(fontResource: "FurifontSerifVF", bundle: Self.bundledResources)
+        #else
+        throw LoadingError.bundledFontNotEnabled
+        #endif
     }
 
     /// The bundled Serif VF font and matching tables, loaded once and safe to share across tasks.
     /// Modify a returned copy to customize the bundled preset.
+    /// Throws `LoadingError.bundledFontNotEnabled` when the BundledFont trait is disabled.
     public static func bundled() throws -> Self {
         try cachedBundled.get()
     }
+
+    #if BundledFont
+    static var bundledResources: Bundle { FurifontResources.bundle }
+    #endif
 
     /// Creates a Core Text font for SwiftUI, UIKit, AppKit, or your own renderer.
     /// Weight uses the OpenType 100–900 scale. Ruby visibility uses Furifont's `ss01` feature.
