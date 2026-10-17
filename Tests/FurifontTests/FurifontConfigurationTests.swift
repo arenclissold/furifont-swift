@@ -11,12 +11,30 @@ struct FurifontConfigurationTests {
             try FurifontConfiguration(
                 fontURL: URL(string: "https://example.com/font.ttf")!, readings: readings)
         }
-        #expect(throws: FurifontConfiguration.LoadingError.invalidFont) {
-            try FurifontConfiguration(
+        do {
+            _ = try FurifontConfiguration(
                 fontURL: URL(fileURLWithPath: "/missing-font.ttf"), readings: readings)
+            Issue.record("Expected a missing font error")
+        } catch let error as FurifontConfiguration.LoadingError {
+            guard case .unreadableResource(let path, let reason) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+            #expect(path == "/missing-font.ttf")
+            #expect(!reason.isEmpty)
         }
         #expect(throws: FurifontConfiguration.LoadingError.resourceNotFound("Missing.ttf")) {
             try FurifontConfiguration(fontResource: "Missing", bundle: .module)
+        }
+    }
+
+    @Test func malformedFontFailsWithRecoveryGuidance() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".ttf")
+        try Data("not a font".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let readings = try testReadings()
+        #expect(throws: FurifontConfiguration.LoadingError.invalidFont) {
+            try FurifontConfiguration(fontURL: url, readings: readings)
         }
     }
 

@@ -29,13 +29,51 @@ public struct FurifontReadings: Sendable {
         }
     }
 
-    public enum LoadingError: Error, Equatable, Sendable {
+    public enum LoadingError: LocalizedError, Equatable, Sendable {
         /// The font's reading table does not advertise the `salt` feature.
         case unsupportedFont
         /// Resource loading accepts local files only; downloading is the caller's responsibility.
         case fileURLsRequired
         /// A named JSON resource could not be found in the supplied bundle.
         case resourceNotFound(String)
+        /// A local resource could not be read. Includes its path and the system's reason.
+        case unreadableResource(String, reason: String)
+        /// A reading table is not valid JSON in the expected upstream format.
+        case invalidResource(String, reason: String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .unsupportedFont:
+                return "The Furifont reading table does not support alternate readings (salt is disabled)."
+            case .fileURLsRequired:
+                return "Furifont reading tables must be loaded from local file URLs."
+            case .resourceNotFound(let name):
+                return "The Furifont reading table ‘\(name)’ was not found in the supplied bundle."
+            case .unreadableResource(let path, let reason):
+                return "Could not read the Furifont table at ‘\(path)’: \(reason)"
+            case .invalidResource(let name, let reason):
+                return "The Furifont table ‘\(name)’ has an invalid format: \(reason)"
+            }
+        }
+
+        public var recoverySuggestion: String? {
+            switch self {
+            case .unsupportedFont:
+                return "Use a Furifont build with salt support and its matching .ivs.json table."
+            case .fileURLsRequired:
+                return
+                    "Download the tables first, then pass their local file URLs, or use init(readingsData:okuriganaData:)."
+            case .resourceNotFound:
+                return
+                    "Include the JSON file in your target's resources and check its filename. Pass the bundle that owns it; use your package's Bundle.module for Swift package resources."
+            case .unreadableResource:
+                return
+                    "Check that the file exists and your app can read it. Use the local tables from the same Furifont build as your font."
+            case .invalidResource:
+                return
+                    "Use the matching .ivs.json and packed okurigana.json files from your Furifont build. Pass the font's table as readingsData and the packed okurigana table as okuriganaData."
+            }
+        }
     }
 
     /// A reading correction in the original, unmodified input.
@@ -84,18 +122,20 @@ public struct FurifontReadings: Sendable {
     }
 
     /// Decodes the font's `.ivs.json` and packed okurigana JSON.
+    /// Throws `LoadingError.invalidResource` for malformed tables, including the decoding location.
     public init(readingsData: Data, okuriganaData: Data) throws {
-        let decoder = JSONDecoder()
         try self.init(
-            lists: decoder.decode(Lists.self, from: readingsData),
-            pairs: decoder.decode([String: [String: [String]]].self, from: okuriganaData))
+            readingsData: readingsData, readingsName: ".ivs.json",
+            okuriganaData: okuriganaData, okuriganaName: "okurigana.json")
     }
 
     /// Loads local resource files. Construct once and reuse, preferably away from the UI thread.
+    /// File and JSON errors include the resource path in `LoadingError`.
     public init(readingsURL: URL, okuriganaURL: URL) throws {
         guard readingsURL.isFileURL, okuriganaURL.isFileURL else { throw LoadingError.fileURLsRequired }
         try self.init(
-            readingsData: Data(contentsOf: readingsURL), okuriganaData: Data(contentsOf: okuriganaURL))
+            readingsData: Self.readResource(at: readingsURL), readingsName: readingsURL.path,
+            okuriganaData: Self.readResource(at: okuriganaURL), okuriganaName: okuriganaURL.path)
     }
 
     /// Loads matching JSON files by font resource name from a bundle.
@@ -114,6 +154,47 @@ public struct FurifontReadings: Sendable {
             throw LoadingError.resourceNotFound(okuriganaResource + ".json")
         }
         try self.init(readingsURL: readingsURL, okuriganaURL: okuriganaURL)
+    }
+
+    private init(
+        readingsData: Data, readingsName: String, okuriganaData: Data, okuriganaName: String
+    ) throws {
+        let lists = try Self.decode(Lists.self, from: readingsData, resource: readingsName)
+        let pairs = try Self.decode(
+            [String: [String: [String]]].self, from: okuriganaData, resource: okuriganaName)
+        try self.init(lists: lists, pairs: pairs)
+    }
+
+    private static func readResource(at url: URL) throws -> Data {
+        do {
+            return try Data(contentsOf: url)
+        } catch {
+            throw LoadingError.unreadableResource(url.path, reason: error.localizedDescription)
+        }
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, from data: Data, resource: String) throws -> T {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            let context: DecodingError.Context
+            let missingKey: String?
+            switch error {
+            case DecodingError.keyNotFound(let key, let details):
+                context = details
+                missingKey = key.stringValue
+            case DecodingError.typeMismatch(_, let details), DecodingError.valueNotFound(_, let details),
+                DecodingError.dataCorrupted(let details):
+                context = details
+                missingKey = nil
+            default:
+                throw LoadingError.invalidResource(resource, reason: error.localizedDescription)
+            }
+            let path = (context.codingPath.map(\.stringValue) + [missingKey].compactMap { $0 }).joined(
+                separator: ".")
+            let location = path.isEmpty ? "" : " at \(path)"
+            throw LoadingError.invalidResource(resource, reason: context.debugDescription + location)
+        }
     }
 
     /// Corrections selected by the longest matching okurigana prefix.

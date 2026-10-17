@@ -26,6 +26,35 @@ copy. Both methods throw `LoadingError.bundledFontNotEnabled` when the trait is 
 Otherwise, loading and registration errors throw; the automatic view setup falls
 back to plain source text if preparation fails.
 
+## Setup errors
+
+`FurifontConfiguration.LoadingError` and `FurifontReadings.LoadingError` conform to
+`LocalizedError`. Their `errorDescription` identifies the problem and
+`recoverySuggestion` explains how to fix it. File errors include the resource path
+and system reason; JSON errors identify the table and decoding location when available.
+Data initializers use `.ivs.json` and `okurigana.json` as table labels.
+
+Use an explicit throwing setup call to diagnose problems before displaying text:
+
+```swift
+import Foundation
+
+do {
+    try FurifontText.prepare()
+} catch {
+    print(error.localizedDescription)
+    if let suggestion = (error as? any LocalizedError)?.recoverySuggestion {
+        print(suggestion)
+    }
+}
+```
+
+For example, a disabled preset asks you to enable the `BundledFont` trait or
+provide a custom configuration. A missing bundle resource names the expected
+file and suggests checking target resources and the owning bundle. Custom font
+and reading initializers report errors in the same way. The nonthrowing
+`init(fontName:readings:)` assumes you have already registered a valid font.
+
 ## Explicit reading notation
 
 ```swift

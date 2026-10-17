@@ -114,6 +114,8 @@ See the [usage guide](Documentation/Usage.md) for loading options, explicit
 readings, rendering APIs, accessibility, and limitations. The helper selects
 readings from tables; it is not a tokenizer and cannot invent missing readings.
 Bracket notation is parsed only by the `annotated:` initializer.
+Loading errors include a description and recovery suggestion; use explicit setup
+to [diagnose missing resources or invalid tables](Documentation/Usage.md#setup-errors).
 
 ## Development
 

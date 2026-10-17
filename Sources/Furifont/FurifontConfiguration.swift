@@ -23,13 +23,55 @@ public struct FurifontConfiguration: Sendable {
     /// Invalid tags are ignored.
     public var features: [String: Int] = [:]
 
-    public enum LoadingError: Error, Equatable, Sendable {
+    public enum LoadingError: LocalizedError, Equatable, Sendable {
         /// Enable the BundledFont package trait, or supply a custom configuration.
         case bundledFontNotEnabled
         case fileURLRequired
         case resourceNotFound(String)
         case invalidFont
         case registrationFailed(String)
+        /// The local font file could not be accessed. Includes its path and the system's reason.
+        case unreadableResource(String, reason: String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .bundledFontNotEnabled:
+                return
+                    "The bundled Furifont font is unavailable because the BundledFont package trait is disabled."
+            case .fileURLRequired:
+                return "Furifont fonts must be loaded from a local file URL."
+            case .resourceNotFound(let name):
+                return "The Furifont font ‘\(name)’ was not found in the supplied bundle."
+            case .invalidFont:
+                return "The supplied file could not be opened as a font with a PostScript name."
+            case .registrationFailed(let reason):
+                return "Could not register the Furifont font: \(reason)"
+            case .unreadableResource(let path, let reason):
+                return "Could not access the Furifont font at ‘\(path)’: \(reason)"
+            }
+        }
+
+        public var recoverySuggestion: String? {
+            switch self {
+            case .bundledFontNotEnabled:
+                return
+                    "Enable the BundledFont trait on your Furifont dependency, or supply your own FurifontConfiguration to FurifontText or .furifont(...)."
+            case .fileURLRequired:
+                return "Download the font first, then pass its local file URL to init(fontURL:readings:)."
+            case .resourceNotFound:
+                return
+                    "Include the .ttf or .otf file in your target's resources and check fontResource and fontExtension. Pass the bundle that owns it; use your package's Bundle.module for Swift package resources."
+            case .invalidFont:
+                return
+                    "Use a valid native Furifont .ttf or .otf file, rather than a web font or reading table, with its matching reading tables."
+            case .registrationFailed:
+                return
+                    "Check the system error above and use a valid Furifont .ttf or .otf file that your app can access."
+            case .unreadableResource:
+                return
+                    "Check that the font file exists and your app can read it. For bundled files, check target resource membership and the bundle you supplied."
+            }
+        }
     }
 
     /// Uses a font already registered by the application.
@@ -115,6 +157,11 @@ public struct FurifontConfiguration: Sendable {
 
     private static func registerFont(at url: URL) throws -> String {
         guard url.isFileURL else { throw LoadingError.fileURLRequired }
+        do {
+            _ = try url.checkResourceIsReachable()
+        } catch {
+            throw LoadingError.unreadableResource(url.path, reason: error.localizedDescription)
+        }
         guard
             let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL)
                 as? [CTFontDescriptor],
@@ -127,10 +174,11 @@ public struct FurifontConfiguration: Sendable {
         if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
             guard let failure = error?.takeRetainedValue() else {
                 throw LoadingError.registrationFailed(
-                    "Font registration failed without an error description.")
+                    "‘\(url.path)’: the system did not provide an error description.")
             }
             guard CFErrorGetCode(failure) == CTFontManagerError.alreadyRegistered.rawValue else {
-                throw LoadingError.registrationFailed(CFErrorCopyDescription(failure) as String)
+                throw LoadingError.registrationFailed(
+                    "‘\(url.path)’: \(CFErrorCopyDescription(failure) as String)")
             }
         }
         return name
