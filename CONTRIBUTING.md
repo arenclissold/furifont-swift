@@ -46,4 +46,13 @@ and an available iOS simulator. The default configuration tests plain-text
 fallback; enable `BundledFont` when testing the preset.
 
 GitHub Actions checks both configurations on macOS and Linux, formatting on
-macOS, and package tests on an available iOS simulator.
+macOS, and both configurations on an available iOS simulator. The bundled iOS
+job runs the native SwiftUI image comparisons for explicit readings, hidden ruby,
+and configuration inheritance and overrides. Each simulator job uses a temporary
+package copy; only the bundled copy enables the trait by default, because
+`xcodebuild` has no command-line package-trait selector. The published package's
+font resources remain opt-in.
+
+Simulator result bundles, including the bundled preset image attachment, are
+available as `ios-custom-results` and `ios-bundled-results` workflow artifacts
+for seven days, including failed test runs.

@@ -45,14 +45,48 @@ jobs:
       - run: swift Scripts/check-consumer.swift ${{ matrix.consumer }}
   ios:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [custom, bundled]
     steps:
       - uses: actions/checkout@v7
+      - name: Prepare simulator package
+        env:
+          CONFIGURATION: ${{ matrix.configuration }}
+        run: |
+          # xcodebuild has no package-trait selector. Set the trait only in a test copy.
+          mkdir -p "$RUNNER_TEMP/furifont-ios"
+          cp -R Package.swift Sources Tests "$RUNNER_TEMP/furifont-ios/"
+          if [ "$CONFIGURATION" = bundled ]; then
+            cd "$RUNNER_TEMP/furifont-ios"
+            swift - <<'SWIFT'
+          import Foundation
+          let manifest = URL(fileURLWithPath: "Package.swift")
+          let source = try String(contentsOf: manifest, encoding: .utf8)
+          let marker = "    traits: [\n"
+          precondition(source.components(separatedBy: marker).count == 2,
+                       "Expected one package traits declaration; update the CI preparation step.")
+          let prepared = source.replacingOccurrences(
+              of: marker, with: marker + "        .default(enabledTraits: [\"BundledFont\"]),\n")
+          try prepared.write(to: manifest, atomically: true, encoding: .utf8)
+          SWIFT
+          fi
       - name: Test on iOS Simulator
+        working-directory: ${{ runner.temp }}/furifont-ios
         run: |
           simulator_id=$(xcrun simctl list devices available | sed -nE '/iPhone/s/.*\(([A-F0-9-]{36})\).*/\1/p' | head -n 1)
           test -n "$simulator_id"
           xcodebuild -scheme Furifont \
             -destination "platform=iOS Simulator,id=$simulator_id" \
-            -derivedDataPath .build/ios \
-            -resultBundlePath .build/ios-tests.xcresult \
+            -derivedDataPath "$RUNNER_TEMP/furifont-ios-build" \
+            -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" \
             -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Upload simulator results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-${{ matrix.configuration }}-results
+          path: ${{ runner.temp }}/ios-tests.xcresult
+          if-no-files-found: warn
+          retention-days: 7
